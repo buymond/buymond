@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>buymond</title>
+<meta name="apple-mobile-web-app-title" content="buymond">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root{
+    --ink: #eef2ff;
+    --dim: #8891b0;
+    --accent: #ffd166;
+    --accent2: #5ec8ff;
+    --panel: rgba(8,10,22,0.72);
+    --line: rgba(255,255,255,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:#02030a;
+    font-family: -apple-system, "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+    color:var(--ink);
+    direction:rtl;
+  }
+  #stage{position:fixed; inset:0;}
+  #cam{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:cover; transform:scaleX(-1);
+    background:#000;
+    display:none;
+  }
+  #sky{position:absolute; inset:0; width:100%; height:100%;}
+
+  /* --- start screen --- */
+  #gate{
+    position:fixed; inset:0; z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:28px; text-align:center;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(94,200,255,0.10), transparent 60%),
+      radial-gradient(ellipse at 20% 90%, rgba(255,209,102,0.06), transparent 55%),
+      #05060f;
+  }
+  #gate::before{
+    content:""; position:absolute; inset:0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, #fff, transparent),
+      radial-gradient(1px 1px at 80% 30%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 60% 70%, #fff, transparent),
+      radial-gradient(1px 1px at 30% 80%, #fff, transparent),
+      radial-gradient(1px 1px at 90% 85%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 45% 15%, #fff, transparent),
+      radial-gradient(1px 1px at 15% 55%, #fff, transparent),
+      radial-gradient(1px 1px at 70% 50%, #fff, transparent);
+    opacity:0.5; pointer-events:none;
+  }
+  .gate-content{position:relative; max-width:420px;}
+  .glyph{
+    font-size:44px; margin-bottom:6px; line-height:1;
+    filter: drop-shadow(0 0 18px rgba(255,209,102,0.45));
+  }
+  h1{
+    font-size:26px; font-weight:600; margin:6px 0 10px;
+    letter-spacing:0.2px;
+  }
+  .lede{color:var(--dim); font-size:15px; line-height:1.9; margin:0 0 26px;}
+  .lede b{color:var(--ink); font-weight:600;}
+  #startBtn{
+    appearance:none; border:none; cursor:pointer;
+    padding:15px 40px; font-size:16px; font-weight:600;
+    border-radius:999px; color:#0a0a12;
+    background:linear-gradient(135deg, var(--accent), #ffb347);
+    box-shadow:0 8px 30px rgba(255,209,102,0.25);
+    font-family:inherit;
+  }
+  #startBtn:active{transform:scale(0.97);}
+  .status{
+    margin-top:18px; min-height:20px; font-size:13px;
+    color:var(--accent2); line-height:1.8;
+  }
+  .status.err{color:#ff8484;}
+
+  /* --- HUD --- */
+  #hud{position:fixed; inset:0; z-index:20; pointer-events:none; display:none;}
+  #topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;
+    pointer-events:none;
+  }
+  .chip{
+    background:var(--panel); backdrop-filter:blur(6px);
+    border:1px solid var(--line); border-radius:12px;
+    padding:8px 13px; font-size:12.5px; color:var(--dim);
+    pointer-events:auto;
+  }
+  .chip b{color:var(--ink); font-weight:600;}
+  #crosshair{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:34px; height:34px; pointer-events:none;
+  }
+  #crosshair::before, #crosshair::after{
+    content:""; position:absolute; background:rgba(255,255,255,0.55);
+  }
+  #crosshair::before{ top:50%; left:0; right:0; height:1px; transform:translateY(-0.5px);}
+  #crosshair::after{ left:50%; top:0; bottom:0; width:1px; transform:translateX(-0.5px);}
+  #bottombar{
+    position:absolute; bottom:0; left:0; right:0;
+    padding:0 16px calc(env(safe-area-inset-bottom,0px) + 16px);
+    display:flex; justify-content:center;
+    pointer-events:none;
+  }
+  #infoCard{
+    pointer-events:auto;
+    width:100%; max-width:420px;
+    background:var(--panel); backdrop-filter:blur(8px);
+    border:1px solid var(--line); border-radius:16px;
+    padding:14px 16px; display:none;
+  }
+  #infoCard .name{font-size:16px; font-weight:600; color:var(--accent);}
+  #infoCard .meta{font-size:12.5px; color:var(--dim); margin-top:4px; line-height:1.7;}
+
+  .label{
+    position:absolute; transform:translate(-50%,-50%);
+    display:flex; flex-direction:column; align-items:center;
+    font-size:11.5px; white-space:nowrap; pointer-events:none;
+  }
+  .dot{border-radius:50%; box-shadow:0 0 8px currentColor;}
+  .label .cap{
+    margin-top:4px; padding:2px 7px; border-radius:8px;
+    background:rgba(2,3,10,0.55); color:var(--ink);
+  }
+
+  #calNote{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,40px);
+    font-size:12px; color:var(--dim); text-align:center; width:80%;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-content">
+    <div class="glyph">✦</div>
+    <h1>آسمان‌نما</h1>
+    <p class="lede">
+      گوشی رو مثل یه تلسکوپ به آسمون بگیرید. با ترکیب <b>دوربین</b>، <b>موقعیت مکانی</b> و <b>قطب‌نمای</b> گوشیتون، جای واقعی ستاره‌ها، سیارات و کهکشان‌ها رو روی صفحه نشون می‌ده — بهترین نتیجه شب و در فضای باز، دور از نور شهره.
+    </p>
+    <button id="startBtn">شروع کن</button>
+    <div class="status" id="statusMsg"></div>
+  </div>
+</div>
+
+<div id="stage">
+  <video id="cam" autoplay playsinline muted></video>
+  <canvas id="sky"></canvas>
+</div>
+
+<div id="hud">
+  <div id="topbar">
+    <div class="chip" id="dirChip">در حال کالیبره کردن…</div>
+    <div class="chip" id="timeChip">--:--</div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="calNote"></div>
+  <div id="bottombar">
+    <div id="infoCard">
+      <div class="name" id="infoName">—</div>
+      <div class="meta" id="infoMeta">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ ASTRONOMY CORE ============ */
+  const DEG = Math.PI/180, RAD = 180/Math.PI;
+  const rad = d => d*DEG, deg = r => r*RAD;
+  function norm360(x){ x = x % 360; return x<0 ? x+360 : x; }
+
+  function daysSinceJ2000(date){
+    return (date.getTime() - Date.UTC(2000,0,1,12,0,0)) / 86400000;
+  }
+
+  // ---- Sun (low precision) ----
+  function sunEcliptic(d){
+    const M = norm360(356.0470 + 0.9856002585*d);
+    const w = norm360(282.9404 + 4.70935e-5*d);
+    const e = 0.016709 - 1.151e-9*d;
+    let E = M + (e*RAD)*Math.sin(rad(M))*(1+e*Math.cos(rad(M)));
+    for(let i=0;i<3;i++){
+      E = E - (E - (e*RAD)*Math.sin(rad(E)) - M) / (1 - e*Math.cos(rad(E)));
+    }
+    const xv = Math.cos(rad(E)) - e;
+    const yv = Math.sqrt(1-e*e) * Math.sin(rad(E));
+    const r = Math.sqrt(xv*xv+yv*yv);
+    const v = deg(Math.atan2(yv,xv));
+    const lon = norm360(v + w);
+    return { lon, r, x: r*Math.cos(rad(lon)), y: r*Math.sin(rad(lon)) };
+  }
+
+  function eclipticToEquatorial(x,y,z,d){
+    const ecl = rad(23.4393 - 3.563e-7*d);
+    const xe = x;
+    const ye = y*Math.cos(ecl) - z*Math.sin(ecl);
+    const ze = y*Math.sin(ecl) + z*Math.cos(ecl);
+    let ra = norm360(deg(Math.atan2(ye,xe)));
+    const dec = deg(Math.atan2(ze, Math.sqrt(xe*xe+ye*ye)));
+    return { ra: ra/15, dec };
+  }
+
+  function sunPosition(d){
+    const s = sunEcliptic(d);
+    return eclipticToEquatorial(s.x, s.y, 0, d);
+  }
+
+  // ---- Moon (low precision) ----
+  function moonPosition(d, sunGeo){
+    const Lp = norm360(218.316 + 13.176396*d);
+    const Mm = norm360(134.963 + 13.064993*d);
+    const Fm = norm360(93.272 + 13.229350*d);
+    const lon = norm360(Lp + 6.289*Math.sin(rad(Mm)));
+    const lat = 5.128*Math.sin(rad(Fm));
+    const dist = 385001 - 20905*Math.cos(rad(Mm)); // km, unused for direction
+    const x = Math.cos(rad(lat))*Math.cos(rad(lon));
+    const y = Math.cos(rad(lat))*Math.sin(rad(lon));
+    const z = Math.sin(rad(lat));
+    return eclipticToEquatorial(x,y,z,d);
+  }
+
+  // ---- Planets (Schlyter low-precision elements) ----
+  const PLANET_ELEMENTS = {
+    "عطارد":  {N:[48.3313,3.24587e-5], i:[7.0047,5.00e-8], w:[29.1241,1.01444e-5], a:0.387098, e:[0.205635,5.59e-10], M:[168.6562,4.0923344368]},
+    "زهره":   {N:[76.6799,2.46590e-5], i:[3.3946,2.75e-8], w:[54.8910,1.38374e-5], a:0.723330, e:[0.006773,-1.302e-9], M:[48.0052,1.6021302244]},
+    "مریخ":   {N:[49.5574,2.11081e-5], i:[1.8497,-1.78e-8], w:[286.5016,2.92961e-5], a:1.523688, e:[0.093405,2.516e-9], M:[18.6021,0.5240207766]},
+    "مشتری":  {N:[100.4542,2.76854e-5], i:[1.3030,-1.557e-7], w:[273.8777,1.64505e-5], a:5.20256, e:[0.048498,4.469e-9], M:[19.8950,0.0830853001]},
+    "زحل":    {N:[113.6634,2.38980e-5], i:[2.4886,-1.081e-7], w:[339.3939,2.97661e-5], a:9.55475, e:[0.055546,-9.499e-9], M:[316.9670,0.0334442282]}
+  };
+
+  function planetPosition(name, d, sun){
+    const el = PLANET_ELEMENTS[name];
+    const N = norm360(el.N[0]+el.N[1]*d);
+    const i = norm360(el.i[0]+el.i[1]*d);
+    const w = norm360(el.w[0]+el.w[1]*d);
+    const a = el.a;
+    const e = el.e[0]+el.e[1]*d;
+    const M = norm360(el.M[0]+el.M[1]*d);
+    let E = M + (e*RAD)*Math.sin(rad(M))*(1+e*Math.cos(rad(M)));
+    for(let k=0;k<4;k++){
+      E = E - (E - (e*RAD)*Math.sin(rad(E)) - M) / (1 - e*Math.cos(rad(E)));
+    }
+    const xv = a*(Math.cos(rad(E)) - e);
+    const yv = a*(Math.sqrt(1-e*e)*Math.sin(rad(E)));
+    const r = Math.sqrt(xv*xv+yv*yv);
+    const v = deg(Math.atan2(yv,xv));
+    const vw = rad(v+w), Nr = rad(N), ir = rad(i);
+    const xh = r*(Math.cos(Nr)*Math.cos(vw) - Math.sin(Nr)*Math.sin(vw)*Math.cos(ir));
+    const yh = r*(Math.sin(Nr)*Math.cos(vw) + Math.cos(Nr)*Math.sin(vw)*Math.cos(ir));
+    const zh = r*(Math.sin(vw)*Math.sin(ir));
+    const xg = xh + sun.x, yg = yh + sun.y, zg = zh;
+    return eclipticToEquatorial(xg,yg,zg,d);
+  }
+
+  // ---- Local Sidereal Time & Alt/Az ----
+  function lst(date, lonDeg){
+    const d = daysSinceJ2000(date);
+    const gmst = norm360(280.46061837 + 360.98564736629*d);
+    return norm360(gmst + lonDeg) / 15; // hours
+  }
+
+  function raDecToAltAz(raH, decDeg, latDeg, lstH){
+    let ha = (lstH - raH) * 15; // degrees
+    ha = norm360(ha);
+    const haR = rad(ha), decR = rad(decDeg), latR = rad(latDeg);
+    const sinAlt = Math.sin(decR)*Math.sin(latR) + Math.cos(decR)*Math.cos(latR)*Math.cos(haR);
+    const alt = deg(Math.asin(sinAlt));
+    const cosAz = (Math.sin(decR) - Math.sin(rad(alt))*Math.sin(latR)) / (Math.cos(rad(alt))*Math.cos(latR));
+    let az = deg(Math.acos(Math.max(-1,Math.min(1,cosAz))));
+    if (Math.sin(haR) > 0) az = 360 - az;
+    return { alt, az };
+  }
+
+  /* ============ CATALOG ============ */
+  // Bright stars: [name, RA(hours), Dec(deg), mag]
+  const STARS = [
+    ["سیریوس",6.7525,-16.7161,-1.46],["کانوپوس",6.3992,-52.6957,-0.74],
+    ["آرکتوروس",14.2610,19.1825,-0.05],["ریگل کنتاروس",14.6600,-60.8339,-0.27],
+    ["وگا",18.6156,38.7837,0.03],["کاپلا",5.2782,45.9980,0.08],
+    ["ریگل",5.2422,-8.2016,0.13],["پروکیون",7.6550,5.2250,0.34],
+    ["بتلگوز",5.9195,7.4071,0.50],["آلتایر",19.8464,8.8683,0.77],
+    ["آلدباران",4.5987,16.5093,0.85],["اسپیکا",13.4199,-11.1613,0.98],
+    ["آنتارس",16.4901,-26.4320,1.06],["پولوکس",7.7553,28.0262,1.14],
+    ["فوماهوت",22.9608,-29.6222,1.16],["دنب",20.6905,45.2803,1.25],
+    ["رگولوس",10.1395,11.9672,1.36],["الناث",5.4382,28.6075,1.65],
+    ["کاستور",7.5766,31.8883,1.58],["بلاتریکس",5.4189,6.3497,1.64],
+    ["الفارد",9.4599,-8.6586,1.98],["دنبکایتوس",22.1372,-46.9611,1.16],
+    ["میرفاک",3.4053,49.8612,1.79],["دبه",11.0621,61.7508,1.79],
+    ["مرک",11.0307,56.3825,2.37],["فکدا",11.8977,53.6948,2.44],
+    ["مگرز",12.2570,57.0326,3.31],["الیوت",12.9004,55.9598,1.77],
+    ["مایزار",13.3987,54.9254,2.23],["الکاید",13.7923,49.3133,1.85],
+    ["پلاریس",2.5303,89.2641,1.98],["کوکاب",14.8451,74.1555,2.08],
+    ["شعرای شامی",6.7525,-16.7161,-1.46],["الگول",3.1361,40.9556,2.12],
+    ["حمل",2.1196,23.4624,2.00],["الفا آندرومدا",0.1398,29.0904,2.06],
+    ["شات",23.0629,15.2053,2.48],["مارکاب",23.0794,15.2053,2.48],
+    ["دنب کیتوس",22.1372,-46.9611,1.16],["راس آلحاگ",17.5822,12.5600,2.08]
+  ];
+
+  // Deep-sky / other: [name, RA(hours), Dec(deg), sizeHint]
+  const DEEPSKY = [
+    ["کهکشان آندرومدا (M31)",0.7123,41.2687,26],
+    ["خوشه پروین (M45)",3.7912,24.1052,22],
+    ["سحابی جبار (M42)",5.5880,-5.3911,20],
+    ["خوشه کندو (M44)",8.6696,19.6700,14],
+    ["کهکشان گرداب (M51)",13.4979,47.1953,10],
+    ["خوشه هرکول (M13)",16.6947,36.4600,12],
+    ["سحابی مرداب (M8)",18.0604,-24.3800,14],
+    ["کهکشان سیگار (M82)",9.9309,69.6797,10],
+    ["کهکشان چرخ‌دنده (M101)",14.0532,54.3489,10],
+    ["سحابی حلقه (M57)",18.8933,33.0292,8]
+  ];
+
+  const PLANET_NAMES = ["عطارد","زهره","مریخ","مشتری","زحل"];
+
+  /* ============ APP STATE ============ */
+  const gate = document.getElementById('gate');
+  const startBtn = document.getElementById('startBtn');
+  const statusMsg = document.getElementById('statusMsg');
+  const hud = document.getElementById('hud');
+  const video = document.getElementById('cam');
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  const dirChip = document.getElementById('dirChip');
+  const timeChip = document.getElementById('timeChip');
+  const calNote = document.getElementById('calNote');
+  const infoCard = document.getElementById('infoCard');
+  const infoName = document.getElementById('infoName');
+  const infoMeta = document.getElementById('infoMeta');
+
+  let userLat = null, userLon = null;
+  let heading = null, pitch = null; // degrees
+  let haveOrientation = false;
+  let objects = []; // computed each refresh: {name, raH, dec, alt, az, type}
+  const FOV_H = 62; // approx horizontal field of view, degrees
+  let FOV_V = 62;
+
+  function resize(){
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height = window.innerHeight * devicePixelRatio;
+    canvas.style.width = window.innerWidth+'px';
+    canvas.style.height = window.innerHeight+'px';
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    FOV_V = FOV_H * (window.innerHeight/window.innerWidth);
+  }
+  window.addEventListener('resize', resize);
+
+  function setStatus(msg, isErr){
+    statusMsg.textContent = msg;
+    statusMsg.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  /* ---- permissions & sensors ---- */
+  async function startCamera(){
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false
+    });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    await video.play();
+  }
+
+  function startGeo(){
+    return new Promise((resolve,reject)=>{
+      if(!navigator.geolocation){ reject(new Error('no-geo')); return; }
+      navigator.geolocation.getCurrentPosition(pos=>{
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        resolve();
+      }, err=>reject(err), { enableHighAccuracy:true, timeout:10000 });
+    });
+  }
+
+  function handleOrientation(e){
+    let alpha = e.alpha, beta = e.beta, gamma = e.gamma;
+    if (typeof e.webkitCompassHeading === 'number'){
+      alpha = e.webkitCompassHeading; // iOS true compass heading, already accounts for absolute
+      alpha = 360 - alpha; // convert to match our alpha convention below
+    }
+    if (alpha==null || beta==null || gamma==null) return;
+    haveOrientation = true;
+
+    const a = rad(alpha), b = rad(beta), g = rad(gamma);
+    const cA=Math.cos(a), sA=Math.sin(a), cB=Math.cos(b), sB=Math.sin(b), cG=Math.cos(g), sG=Math.sin(g);
+
+    // rotation matrix (Z-X'-Y'' intrinsic, per orientation spec)
+    const r13 = cG*sA*sB + cA*sG;
+    const r23 = sA*sG - cA*cG*sB;
+    const r33 = cB*cG;
+
+    // back camera points opposite the "out of screen" vector
+    const vx = -r13, vy = -r23, vz = -r33; // world: x=East?, using device frame mapping below
+
+    // In the spec's world frame: X=East, Y=North, Z=Up (approx, magnetic)
+    const az = norm360(deg(Math.atan2(vx, vy)));
+    const alt = deg(Math.asin(Math.max(-1,Math.min(1,vz))));
+
+    heading = az;
+    pitch = alt;
+  }
+
+  async function requestOrientationPermission(){
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function'){
+      const res = await DeviceOrientationEvent.requestPermission();
+      if (res !== 'granted') throw new Error('orientation-denied');
+    }
+    const evName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(evName, handleOrientation, true);
+  }
+
+  /* ---- compute sky objects ---- */
+  function refreshObjects(){
+    if (userLat==null) return;
+    const now = new Date();
+    const d = daysSinceJ2000(now);
+    const L = lst(now, userLon);
+    const list = [];
+
+    const sun = sunEcliptic(d);
+    const sunEq = sunPosition(d);
+    let aa = raDecToAltAz(sunEq.ra, sunEq.dec, userLat, L);
+    list.push({name:'خورشید', raH:sunEq.ra, dec:sunEq.dec, alt:aa.alt, az:aa.az, type:'sun'});
+
+    const moonEq = moonPosition(d, sun);
+    aa = raDecToAltAz(moonEq.ra, moonEq.dec, userLat, L);
+    list.push({name:'ماه', raH:moonEq.ra, dec:moonEq.dec, alt:aa.alt, az:aa.az, type:'moon'});
+
+    PLANET_NAMES.forEach(pn=>{
+      const pe = planetPosition(pn, d, sun);
+      const a2 = raDecToAltAz(pe.ra, pe.dec, userLat, L);
+      list.push({name:pn, raH:pe.ra, dec:pe.dec, alt:a2.alt, az:a2.az, type:'planet'});
+    });
+
+    STARS.forEach(s=>{
+      const a3 = raDecToAltAz(s[1], s[2], userLat, L);
+      list.push({name:s[0], raH:s[1], dec:s[2], alt:a3.alt, az:a3.az, type:'star', mag:s[3]});
+    });
+
+    DEEPSKY.forEach(s=>{
+      const a4 = raDecToAltAz(s[1], s[2], userLat, L);
+      list.push({name:s[0], raH:s[1], dec:s[2], alt:a4.alt, az:a4.az, type:'deepsky', size:s[3]});
+    });
+
+    objects = list;
+    timeChip.textContent = now.toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  const COMPASS_PTS = ['شمال','شمال‌شرق','شرق','جنوب‌شرق','جنوب','جنوب‌غرب','غرب','شمال‌غرب'];
+  function compassLabel(az){
+    return COMPASS_PTS[Math.round(norm360(az)/45) % 8];
+  }
+
+  /* ---- render loop ---- */
+  let selected = null;
+
+  function render(){
+    requestAnimationFrame(render);
+    if (!haveOrientation || heading==null){
+      dirChip.innerHTML = 'در حال کالیبره کردن…';
+      return;
+    }
+    const W = window.innerWidth, H = window.innerHeight;
+    ctx.clearRect(0,0,W,H);
+
+    dirChip.innerHTML = '<b>' + compassLabel(heading) + '</b> · ارتفاع ' + pitch.toFixed(0) + '°';
+
+    let nearest = null, nearestD = 999;
+
+    objects.forEach(o=>{
+      let dAz = ((o.az - heading + 540) % 360) - 180; // -180..180
+      let dAlt = o.alt - pitch;
+      if (Math.abs(dAz) > FOV_H*0.75 || Math.abs(dAlt) > FOV_V*0.75) return;
+      if (o.alt < -2) return; // below horizon-ish
+
+      const sx = W/2 + (dAz / (FOV_H/2)) * (W/2);
+      const sy = H/2 - (dAlt / (FOV_V/2)) * (H/2);
+
+      const dist = Math.hypot(dAz,dAlt);
+      if (dist < nearestD){ nearestD = dist; nearest = {o, sx, sy}; }
+
+      drawObject(o, sx, sy, dist);
+    });
+
+    if (nearest && nearestD < 6){
+      showInfo(nearest.o);
+    } else {
+      infoCard.style.display = 'none';
+    }
+  }
+
+  function drawObject(o, x, y, dist){
+    ctx.save();
+    let color, r;
+    if (o.type === 'sun'){ color = '#ffd166'; r = 16; }
+    else if (o.type === 'moon'){ color = '#e8ecf5'; r = 13; }
+    else if (o.type === 'planet'){ color = '#5ec8ff'; r = 6; }
+    else if (o.type === 'deepsky'){ color = '#c792ea'; r = 9; }
+    else { // star
+      const mag = o.mag!=null ? o.mag : 3;
+      r = Math.max(1.4, 4.2 - mag*0.7);
+      color = '#ffffff';
+    }
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = o.type==='star' ? 6 : 14;
+    ctx.fill();
+
+    if (o.type !== 'star' || dist < 3.5){
+      ctx.shadowBlur = 0;
+      ctx.font = '600 12px -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(2,3,10,0.6)';
+      const w = ctx.measureText(o.name).width + 14;
+      ctx.beginPath();
+      roundRect(ctx, x-w/2, y+r+6, w, 20, 8);
+      ctx.fill();
+      ctx.fillStyle = '#eef2ff';
+      ctx.textAlign = 'center';
+      ctx.fillText(o.name, x, y+r+20);
+    }
+    ctx.restore();
+  }
+
+  function roundRect(ctx,x,y,w,h,rad){
+    ctx.moveTo(x+rad,y);
+    ctx.arcTo(x+w,y,x+w,y+h,rad);
+    ctx.arcTo(x+w,y+h,x,y+h,rad);
+    ctx.arcTo(x,y+h,x,y,rad);
+    ctx.arcTo(x,y,x+w,y,rad);
+  }
+
+  const TYPE_LABEL = {sun:'خورشید', moon:'ماه', planet:'سیاره', star:'ستاره', deepsky:'جرم دوردست (کهکشان/سحابی)'};
+  function showInfo(o){
+    infoCard.style.display = 'block';
+    infoName.textContent = o.name;
+    let extra = '';
+    if (o.type==='star' && o.mag!=null) extra = ' · قدر ظاهری ' + o.mag;
+    infoMeta.textContent = TYPE_LABEL[o.type] + extra + ' · ارتفاع ' + o.alt.toFixed(1) + '°';
+  }
+
+  /* ---- boot ---- */
+  startBtn.addEventListener('click', async ()=>{
+    startBtn.disabled = true;
+    try{
+      setStatus('در حال درخواست دسترسی به دوربین…');
+      await startCamera();
+
+      setStatus('در حال دریافت موقعیت مکانی…');
+      await startGeo();
+
+      setStatus('در حال فعال‌سازی قطب‌نما…');
+      await requestOrientationPermission();
+
+      resize();
+      refreshObjects();
+      setInterval(refreshObjects, 4000);
+
+      gate.style.display = 'none';
+      hud.style.display = 'block';
+      calNote.textContent = 'گوشی رو آروم به شکل ۸ بچرخونید تا قطب‌نما کالیبره بشه';
+      setTimeout(()=>{ calNote.textContent=''; }, 6000);
+      requestAnimationFrame(render);
+
+    } catch(err){
+      startBtn.disabled = false;
+      let msg = 'یه مشکلی پیش اومد. ';
+      if (err && err.message === 'orientation-denied') msg += 'بدون اجازه‌ی دسترسی به سنسورهای جهت‌یابی، اپ نمی‌تونه جهت گوشی رو تشخیص بده.';
+      else if (err && err.code === 1) msg += 'دسترسی به موقعیت مکانی رد شد؛ بدون GPS نمی‌تونم موقعیت اجرام آسمانی رو حساب کنم.';
+      else if (err && err.name === 'NotAllowedError') msg += 'دسترسی به دوربین رد شد.';
+      else msg += 'مطمئن بشید از طریق HTTPS باز شده و دسترسی‌های دوربین/موقعیت/سنسور رو تأیید کردید.';
+      setStatus(msg, true);
+    }
+  });
+
+  resize();
+})();
+</script>
+</body>
+</html>
